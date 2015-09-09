@@ -169,8 +169,8 @@ struct Task: public DUNE::Tasks::Periodic
 			WingHeater_temp_IMC_message.value = tempOut;
 			dispatch(WingHeater_temp_IMC_message);
 
-			WingHeater_humid_IMC_message.setSourceEntity(WingHeater_tempOut_entity);
-			WingHeater_temp_IMC_message.value = humid;
+			WingHeater_humid_IMC_message.setSourceEntity(WingHeater_humidOut_entity);
+			WingHeater_humid_IMC_message.value = humid;
 			dispatch(WingHeater_humid_IMC_message);
 
 
