@@ -145,7 +145,7 @@ struct Task: public DUNE::Tasks::Periodic
 			data = data.substr(foundBegin, foundEnd-foundBegin);
 
 			spew("|%s|", data.c_str());
-			sscanf(data.c_str(), "$%f,%f,%f,%f,%f,%f", &tempL1, &tempL2, &tempR1, &tempR2, &tempOut, &humid);
+			sscanf(data.c_str(), "$%f,%f,%f,%f,%f,%f", &tempL1, &tempL2, &tempR1, &tempR2, &humid, &tempOut);
 
 
 			WingHeater_temp_IMC_message.setSourceEntity(WingHeater_tempL1_entity);
