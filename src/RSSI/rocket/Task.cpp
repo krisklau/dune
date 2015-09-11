@@ -104,7 +104,7 @@ struct Task: public DUNE::Tasks::Periodic
 	std::string exec(const char* cmd) {
 		FILE* pipe = popen(cmd, "r");
 		if (!pipe) return "ERROR";
-		char buffer[1024];
+		char buffer[4096];
 		std::string result = "";
 
 		while(!feof(pipe)) {
@@ -127,15 +127,16 @@ struct Task: public DUNE::Tasks::Periodic
 		if(output.compare("ERROR")){
 
 			std::string rocket_data_string = output;
-			std::size_t foundBegin = rocket_data_string.find("transmitted");
-			std::size_t foundEnd = rocket_data_string.find("Antenna profile");
+			std::size_t foundBegin = rocket_data_string.find("[ext, ch1]: ");
+			foundBegin = rocket_data_string.find('\n', foundBegin);
+			std::size_t foundEnd = rocket_data_string.find("periodic", foundBegin);
 
 
 			std::string rocket_rssi_data;
 
 
 			if ((foundBegin!=std::string::npos) & (foundEnd!=std::string::npos)){
-				rocket_rssi_data = rocket_data_string.substr(foundBegin+12, foundEnd -2 - foundBegin-10);
+				rocket_rssi_data = rocket_data_string.substr(foundBegin+1, foundEnd -2 - foundBegin-1);
 
 				trace("OUT %s", rocket_rssi_data.c_str());
 
@@ -147,17 +148,17 @@ struct Task: public DUNE::Tasks::Periodic
 
 
 				std::string rocket_ch0_rssi_data;
-				foundBegin = rocket_rssi_data.find("ch0]: ", foundEnd);
+				foundBegin = rocket_rssi_data.find("[ctl, ch0]: ", foundEnd);
 				foundEnd = rocket_rssi_data.find('\n', foundBegin);
 				if ((foundBegin!=std::string::npos) & (foundEnd!=std::string::npos)){
-					rocket_ch0_rssi_data = rocket_rssi_data.substr(foundBegin+6, foundEnd-foundBegin-6);
+					rocket_ch0_rssi_data = rocket_rssi_data.substr(foundBegin+12, foundEnd-foundBegin-12);
 				}
 
 				std::string rocket_ch1_rssi_data;
-				foundBegin = rocket_rssi_data.find("ch1]: ", foundEnd);
+				foundBegin = rocket_rssi_data.find("[ctl, ch1]: ", foundEnd);
 				foundEnd = rocket_rssi_data.find('\n', foundBegin);
 				if ((foundBegin!=std::string::npos) & (foundEnd!=std::string::npos)){
-					rocket_ch1_rssi_data = rocket_rssi_data.substr(foundBegin+6, foundEnd-foundBegin-6);
+					rocket_ch1_rssi_data = rocket_rssi_data.substr(foundBegin+12, foundEnd-foundBegin-12);
 				}
 
 
