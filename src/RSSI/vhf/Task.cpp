@@ -147,7 +147,7 @@ struct Task: public DUNE::Tasks::Periodic
 
 		spew("%s", vhf_data_string.c_str());
 
-		while ((foundRX!=std::string::npos) & (foundDBM!=std::string::npos)){
+		if ((foundRX!=std::string::npos) & (foundDBM!=std::string::npos)){
 			vhf_rssi_text = vhf_data_string.substr(foundRX+3, foundDBM-4 - foundRX+1);
 
 			fp32_t vhf_rssi_value;
