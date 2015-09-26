@@ -201,9 +201,7 @@ struct Task: public Tasks::Periodic
 
 		debug("initializing");
 		// Send execute immediatly command.
-		//sendCommand("i ");
-		// Send execute slave command.
-		sendCommand("s ");
+		sendCommand("i ");
 
 
 		// Send reset.
@@ -217,7 +215,7 @@ struct Task: public Tasks::Periodic
 
 		bool endloop = false;
 		while(!endloop){
-			if (m_poll.poll(1))
+			if (m_poll.poll(2))
 			{
 				if (m_poll.wasTriggered(*m_uart))
 				{
@@ -368,6 +366,13 @@ struct Task: public Tasks::Periodic
 		debug("Pan: %f rad", pan_rad);
 		debug("Pan: %d", pan_pos);
 
+		if(old_pan_pos != pan_pos){
+			// Send pan command.
+			createCommand("pp", pan_pos);
+
+			debug("Pan bounded: %d", pan_pos);
+			old_pan_pos = pan_pos;
+		}
 
 
 		// TILT
@@ -378,16 +383,9 @@ struct Task: public Tasks::Periodic
 		debug("Tilt: %f rad", m_tilt);
 		debug("Tilt: %d", tilt_pos);
 
-		if((old_tilt_pos != tilt_pos)||(old_pan_pos != pan_pos)){
-			// Send pan command.
-			createCommand("pp", pan_pos);
-
-			debug("Pan bounded: %d", pan_pos);
-			old_pan_pos = pan_pos;
-
+		if(old_tilt_pos != tilt_pos){
 			// Send tilt command.
 			createCommand("tp", tilt_pos);
-			sendCommand("a "); //to avoid resetting of axle
 
 			debug("Tilt bounded: %d", tilt_pos);
 			old_tilt_pos = tilt_pos;
