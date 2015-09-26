@@ -40,201 +40,227 @@
 
 namespace Actuators
 {
-  namespace FLIRPTU
-  {
-    using DUNE_NAMESPACES;
+namespace FLIRPTU
+{
+using DUNE_NAMESPACES;
 
-    // Pan and Tilt maximum and minimum values.
-    struct Limits
-    {
-      // Maximum tilt.
-      int tMax;
-      // Minimum tilt.
-      int tMin;
-      // Maximum pan.
-      int pMax;
-      // Minimum pan.
-      int pMin;
-    };
+// Pan and Tilt maximum and minimum values.
+struct Limits
+{
+	// Maximum tilt.
+	int tMax;
+	// Minimum tilt.
+	int tMin;
+	// Maximum pan.
+	int pMax;
+	// Minimum pan.
+	int pMin;
+};
 
-    struct Arguments
-    {
-      // PTU model.
-      std::string model;
-      // Serial port device.
-      std::string uart_dev;
-      // Serial port baud rate.
-      unsigned uart_baud;
-      // PTU pan continuous.
-      bool ptu_pc;
-      // PTU pan speed.
-      int  pan_speed;
-      // PTU tilt speed.
-      int tilt_speed;
-      // PTU pan acceleration.
-      int pan_accel;
-      // PTU tilt acceleration.
-      int tilt_accel;
-      // Minimum tilt
-      float tilt_min;
-      // Reset on boot
-      bool reset_on_boot;
-      // Set to desired position on boot
-      bool begin_non_standard;
-      // Tilt after boot
-      int begin_tilt;
-      // Pan after boot
-      int begin_pan;
-    };
+struct Arguments
+{
+	// PTU model.
+	std::string model;
+	// Serial port device.
+	std::string uart_dev;
+	// Serial port baud rate.
+	unsigned uart_baud;
+	// PTU pan continuous.
+	bool ptu_pc;
+	// PTU pan speed.
+	int  pan_speed;
+	// PTU tilt speed.
+	int tilt_speed;
+	// PTU pan acceleration.
+	int pan_accel;
+	// PTU tilt acceleration.
+	int tilt_accel;
+	// Minimum tilt
+	float tilt_min;
+	// Reset on boot
+	bool reset_on_boot;
+	// Set to desired position on boot
+	bool begin_non_standard;
+	// Tilt after boot
+	int begin_tilt;
+	// Pan after boot
+	int begin_pan;
+};
 
-    struct Task: public Tasks::Periodic
-    {
-      // Device protocol handler.
-      SerialPort* m_uart;
-      // Pan-Tilt Limits.
-      Limits m_limits;
-      // Task Arguments.
-      Arguments m_args;
-      // Serial Port buffer.
-      uint8_t m_bfr[BUFFER_MAX];
-      // Pan and tilt angles
-      float m_pan, m_tilt;
+struct Task: public Tasks::Periodic
+{
+	// Device protocol handler.
+	SerialPort* m_uart;
+	// Pan-Tilt Limits.
+	Limits m_limits;
+	// Task Arguments.
+	Arguments m_args;
+	// Serial Port buffer.
+	uint8_t m_bfr[BUFFER_MAX];
+	// Pan and tilt angles
+	float m_pan, m_tilt;
 
-      Task(const std::string& name, Tasks::Context& ctx):
-        Tasks::Periodic(name, ctx),
-        m_uart(NULL),
-        m_pan(0),
-        m_tilt(Math::c_half_pi)
-      {
-        param("PTU Model", m_args.model)
-        .defaultValue("D48")
-        .values("D48, D300")
-        .description("Pan-Til Unit model name");
+	int old_pan_pos =0;
+	int old_tilt_pos=0;
 
-        param("Serial Port - Device", m_args.uart_dev)
-        .defaultValue("/dev/ttyUSB0")
-        .description("Serial port device (used to communicate with the actuator)");
+	// I/O Multiplexer.
+	Poll m_poll;
 
-        param("Serial Port - Baud Rate", m_args.uart_baud)
-        .defaultValue("9600")
-        .description("Serial port baud rate");
+	Task(const std::string& name, Tasks::Context& ctx):
+		Tasks::Periodic(name, ctx),
+		m_uart(NULL),
+		m_pan(0),
+		m_tilt(Math::c_half_pi)
+	{
 
-        param("Pan Continuous", m_args.ptu_pc)
-        .defaultValue("false")
-        .description("PTU pan continuous enable");
+		param("PTU Model", m_args.model)
+        		.defaultValue("D48")
+        		.values("D48, D300")
+        		.description("Pan-Til Unit model name");
 
-        param("Pan Speed", m_args.pan_speed)
-        .defaultValue("1000")
-        .minimumValue("0")
-        .description("PTU pan speed in positions/sec");
+		param("Serial Port - Device", m_args.uart_dev)
+		.defaultValue("/dev/ttyUSB0")
+		.description("Serial port device (used to communicate with the actuator)");
 
-        param("Tilt Speed", m_args.tilt_speed)
-        .defaultValue("1000")
-        .minimumValue("0")
-        .description("PTU tilt speed in positions/sec");
+		param("Serial Port - Baud Rate", m_args.uart_baud)
+		.defaultValue("9600")
+		.description("Serial port baud rate");
 
-        param("Pan Acceleration", m_args.pan_accel)
-        .defaultValue("2000")
-        .minimumValue("0")
-        .description("PTU pan acceleration in positions/sec/sec");
+		param("Pan Continuous", m_args.ptu_pc)
+		.defaultValue("false")
+		.description("PTU pan continuous enable");
 
-        param("Tilt Acceleration", m_args.tilt_accel)
-        .defaultValue("2000")
-        .minimumValue("0")
-        .description("PTU tilt acceleration in positions/sec/sec");
+		param("Pan Speed", m_args.pan_speed)
+		.defaultValue("1000")
+		.minimumValue("0")
+		.description("PTU pan speed in positions/sec");
 
-        param("Minimum Tilt Angle", m_args.tilt_min)
-        .defaultValue("10.0")
-        .minimumValue("0.0")
-        .description("PTU minimum tilt angle in degrees");
+		param("Tilt Speed", m_args.tilt_speed)
+		.defaultValue("1000")
+		.minimumValue("0")
+		.description("PTU tilt speed in positions/sec");
 
-        param("Reset On Boot", m_args.reset_on_boot)
-        .defaultValue("true")
-        .description("reseting PTU on boot");
+		param("Pan Acceleration", m_args.pan_accel)
+		.defaultValue("2000")
+		.minimumValue("0")
+		.description("PTU pan acceleration in positions/sec/sec");
 
-         param("Non-Standard Position on Boot", m_args.begin_non_standard)
-        .defaultValue("false")
-        .description("PTU non-standard position after DUNE start");
+		param("Tilt Acceleration", m_args.tilt_accel)
+		.defaultValue("2000")
+		.minimumValue("0")
+		.description("PTU tilt acceleration in positions/sec/sec");
 
-        param("Tilt Angle After Boot", m_args.begin_tilt)
-        .defaultValue("0.0")
-        .minimumValue("-10.0")
-        .maximumValue("90.0")
-        .description("PTU tilt angle after boot in degrees: 90 degrees points up");
-        
-         param("Pan Angle After Boot", m_args.begin_pan)
-         .defaultValue("0.0")
-         .minimumValue("-180.0")
-         .maximumValue("180.0")
-         .description("PTU pan angle after boot in degrees");
+		param("Minimum Tilt Angle", m_args.tilt_min)
+		.defaultValue("10.0")
+		.minimumValue("0.0")
+		.description("PTU minimum tilt angle in degrees");
 
+		param("Reset On Boot", m_args.reset_on_boot)
+		.defaultValue("true")
+		.description("reseting PTU on boot");
 
-        // Setup entity states.
-        // @todo: set task entity states using new scheme.
-        //
-        // for reference:
-        // m_estates[STA_COM_ERROR].state = IMC::EntityState::ESTA_ERROR;
-        // m_estates[STA_COM_ERROR].description = DTR("no PTU data - serial port communication error");
-        // m_estates[STA_DEV_ERROR].state = IMC::EntityState::ESTA_ERROR;
-        // m_estates[STA_DEV_ERROR].description = DTR("PTU internal error");
+		param("Non-Standard Position on Boot", m_args.begin_non_standard)
+		.defaultValue("false")
+		.description("PTU non-standard position after DUNE start");
 
-        bind<IMC::SetControlSurfaceDeflection>(this);
-      }
+		param("Tilt Angle After Boot", m_args.begin_tilt)
+		.defaultValue("0.0")
+		.minimumValue("-10.0")
+		.maximumValue("90.0")
+		.description("PTU tilt angle after boot in degrees: 90 degrees points up");
 
-      void
-      onResourceAcquisition(void)
-      {
-        m_uart = new SerialPort(m_args.uart_dev, m_args.uart_baud);
-      }
-
-      void
-      onResourceInitialization(void)
-      {
-        debug("initializing");
-        // Send execute immediatly command.
-        //sendCommand("i ");
-        // Send execute slave command.
-                sendCommand("s ");
+		param("Pan Angle After Boot", m_args.begin_pan)
+		.defaultValue("0.0")
+		.minimumValue("-180.0")
+		.maximumValue("180.0")
+		.description("PTU pan angle after boot in degrees");
 
 
-        // Send reset.
-        if (m_args.reset_on_boot)
-           {
-           sendCommand("r ");
-           debug("resetting PTU");
-           }
-        // Wait for reset.
-        sendCommand("a ");
-        // Send position control command.
-        sendCommand("ci ");
-        // Wait.
-        sendCommand("a ");
-        // Send pan continuous mode.
-        if (m_args.ptu_pc)
-          sendCommand("pce ");
-        else
-          sendCommand("pcd ");
-        // Wait.
-        sendCommand("a ");
-        // Disable factory limits (Attention to not overload the tilt limits).
-        sendCommand("ld ");
-        // Wait.
-        sendCommand("a ");
-        // Set pan and tilt speeds.
-        createCommand("ps", m_args.pan_speed);
-        createCommand("ts", m_args.tilt_speed);
-        // Set pan and tilt accelerations.
-        createCommand("pa", m_args.pan_accel);
-        createCommand("ta", m_args.tilt_accel);
-        // Wait.
-        sendCommand("a ");
-        // Set non-standard position after boot
-        if(m_args.begin_non_standard){
-        m_pan = Math::c_pi / 180.0 * m_args.begin_pan;
-        m_tilt = Math::c_pi / 180.0 * m_args.begin_tilt;
-        }
-        // Set non-standard position after boot
-/*        
+		// Setup entity states.
+		// @todo: set task entity states using new scheme.
+		//
+		// for reference:
+		// m_estates[STA_COM_ERROR].state = IMC::EntityState::ESTA_ERROR;
+		// m_estates[STA_COM_ERROR].description = DTR("no PTU data - serial port communication error");
+		// m_estates[STA_DEV_ERROR].state = IMC::EntityState::ESTA_ERROR;
+		// m_estates[STA_DEV_ERROR].description = DTR("PTU internal error");
+
+		bind<IMC::SetControlSurfaceDeflection>(this);
+	}
+
+	void
+	onResourceAcquisition(void)
+	{
+		m_uart = new SerialPort(m_args.uart_dev, m_args.uart_baud);
+	}
+
+	void
+	onResourceInitialization(void)
+	{
+		m_poll.add(*m_uart);
+
+		debug("initializing");
+		// Send execute immediatly command.
+		//sendCommand("i ");
+		// Send execute slave command.
+		sendCommand("s ");
+
+
+		// Send reset.
+		if (m_args.reset_on_boot)
+		{
+			sendCommand("r ");
+			debug("resetting PTU");
+		}
+		// Wait for reset.
+		sendCommand("a ");
+
+		bool endloop = false;
+		while(!endloop){
+			if (m_poll.poll(1))
+			{
+				if (m_poll.wasTriggered(*m_uart))
+				{
+					char bfr[1024];
+					int rv = m_uart->read(bfr, sizeof(bfr));
+					if(rv <= 0){
+						endloop = true;
+					}
+				}
+
+			}
+		}
+
+		// Send position control command.
+		sendCommand("ci ");
+		// Wait.
+		sendCommand("a ");
+		// Send pan continuous mode.
+		if (m_args.ptu_pc)
+			sendCommand("pce ");
+		else
+			sendCommand("pcd ");
+		// Wait.
+		sendCommand("a ");
+		// Disable factory limits (Attention to not overload the tilt limits).
+		sendCommand("ld ");
+		// Wait.
+		sendCommand("a ");
+		// Set pan and tilt speeds.
+		createCommand("ps", m_args.pan_speed);
+		createCommand("ts", m_args.tilt_speed);
+		// Set pan and tilt accelerations.
+		createCommand("pa", m_args.pan_accel);
+		createCommand("ta", m_args.tilt_accel);
+		// Wait.
+		sendCommand("a ");
+		// Set non-standard position after boot
+		if(m_args.begin_non_standard){
+			m_pan = Math::c_pi / 180.0 * m_args.begin_pan;
+			m_tilt = Math::c_pi / 180.0 * m_args.begin_tilt;
+		}
+		// Set non-standard position after boot
+		/*
             if(m_args.begin_non_standard){
             createCommand("tp", m_args.begin_tilt);
             // Wait.
@@ -244,42 +270,48 @@ namespace Actuators
             sendCommand("a ");
 
         }*/
-      }
+	}
 
-      void
-      onUpdateParameters(void)
-      {
-        if (m_args.model == "D48")
-        {
-          m_limits.tMax = 0;
-          m_limits.tMin = -6999;
-          m_limits.pMax  = 6999;
-          m_limits.pMin  = -6999;
-        }
-        if (m_args.model == "D300")
-        {
-          m_limits.tMax = 0;
-          m_limits.tMin = -3499;
-          m_limits.pMax  = 7000;
-          m_limits.pMin  = -6999;
-        }
+	void
+	onUpdateParameters(void)
+	{
+		if (m_args.model == "D48")
+		{
+			m_limits.tMax = 0;
+			m_limits.tMin = -6999;
+			m_limits.pMax  = 6999;
+			m_limits.pMin  = -6999;
+		}
+		if (m_args.model == "D300")
+		{
+			m_limits.tMax = 0;
+			m_limits.tMin = -3499;
+			m_limits.pMax  = 7000;
+			m_limits.pMin  = -6999;
+		}
 
-        m_args.tilt_min = Angles::radians(m_args.tilt_min);
-      }
+		m_args.tilt_min = Angles::radians(m_args.tilt_min);
+	}
 
-      void
-      onResourceRelease(void)
-      {
-        Memory::clear(m_uart);
-      }
+	void
+	onResourceRelease(void)
+	{
+		Memory::clear(m_uart);
+		if (m_uart != NULL)
+		{
+			m_poll.remove(*m_uart);
+			delete m_uart;
+			m_uart = NULL;
+		}
+	}
 
-      void
-      sendCommand(const std::string& cmd)
-      {
-        m_uart->write(cmd.c_str(), cmd.size());
-        trace("OUT | %s | %u", sanitize(cmd).c_str(), (unsigned)cmd.size());
-        // Check for command success.
-        /*if(m_uart->hasNewData(1.0) == IOMultiplexing::PRES_OK)
+	void
+	sendCommand(const std::string& cmd)
+	{
+		m_uart->write(cmd.c_str(), cmd.size());
+		trace("OUT | %s | %u", sanitize(cmd).c_str(), (unsigned)cmd.size());
+		// Check for command success.
+		/*if(m_uart->hasNewData(1.0) == IOMultiplexing::PRES_OK)
           {
           int retval = m_uart->read(m_bfr, sizeof(bfr));
           debug("%i", retval);
@@ -288,62 +320,61 @@ namespace Actuators
           {
           debug("no response!");
           }*/
-      }
+	}
 
-      void
-      createCommand(const std::string& cmd_type, int& val)
-      {
-        std::stringstream cmd;
-        cmd << cmd_type << val << " ";
-        sendCommand(cmd.str());
-      }
+	void
+	createCommand(const std::string& cmd_type, int& val)
+	{
+		std::stringstream cmd;
+		cmd << cmd_type << val << " ";
+		sendCommand(cmd.str());
+	}
 
-      void
-      consume(const IMC::SetControlSurfaceDeflection* csd)
-      {
-        if (csd->id == 'p')
-        {
-          m_pan = csd->angle;
-        }
+	void
+	consume(const IMC::SetControlSurfaceDeflection* csd)
+	{
+		if (csd->id == 'p')
+		{
+			m_pan = csd->angle;
+		}
 
-        if (csd->id == 't')
-        {
-          m_tilt = csd->angle;
-        }
-      }
+		if (csd->id == 't')
+		{
+			m_tilt = csd->angle;
+		}
+	}
 
-      int
-      rad2pos(float min_angle, float max_angle, int min_pos, int max_pos, float angle)
-      {
-        int pos = (int) ((max_pos - min_pos) * (angle - min_angle) / (max_angle - min_angle)) + min_pos;
+	int
+	rad2pos(float min_angle, float max_angle, int min_pos, int max_pos, float angle)
+	{
+		int pos = (int) ((max_pos - min_pos) * (angle - min_angle) / (max_angle - min_angle)) + min_pos;
 
-        return trimValue(pos, min_pos, max_pos);
-      }
-
-      int old_pan_pos =0;
-      int old_tilt_pos=0;
-
-      void
-      task(void)
-      {
-        // PAN
-        float pan_rad = Angles::normalizeRadian(m_pan);
-        int pan_pos = rad2pos(-Math::c_pi, Math::c_pi, m_limits.pMin, m_limits.pMax, pan_rad);
-
-        debug("Pan: %f rad", pan_rad);
-        debug("Pan: %d", pan_pos);
+		return trimValue(pos, min_pos, max_pos);
+	}
 
 
 
-        // TILT
-        float tilt_rad = Angles::normalizeRadian(m_tilt);
-        tilt_rad = trimValue(m_tilt, m_args.tilt_min, Math::c_half_pi);
-        int tilt_pos = rad2pos(0, Math::c_half_pi, m_limits.tMin, m_limits.tMax, tilt_rad);
+	void
+	task(void)
+	{
+		// PAN
+		float pan_rad = Angles::normalizeRadian(m_pan);
+		int pan_pos = rad2pos(-Math::c_pi, Math::c_pi, m_limits.pMin, m_limits.pMax, pan_rad);
 
-        debug("Tilt: %f rad", m_tilt);
-        debug("Tilt: %d", tilt_pos);
+		debug("Pan: %f rad", pan_rad);
+		debug("Pan: %d", pan_pos);
 
-        if((old_tilt_pos != tilt_pos)||(old_pan_pos != pan_pos)){
+
+
+		// TILT
+		float tilt_rad = Angles::normalizeRadian(m_tilt);
+		tilt_rad = trimValue(m_tilt, m_args.tilt_min, Math::c_half_pi);
+		int tilt_pos = rad2pos(0, Math::c_half_pi, m_limits.tMin, m_limits.tMax, tilt_rad);
+
+		debug("Tilt: %f rad", m_tilt);
+		debug("Tilt: %d", tilt_pos);
+
+		if((old_tilt_pos != tilt_pos)||(old_pan_pos != pan_pos)){
 			// Send pan command.
 			createCommand("pp", pan_pos);
 
@@ -356,29 +387,29 @@ namespace Actuators
 
 			debug("Tilt bounded: %d", tilt_pos);
 			old_tilt_pos = tilt_pos;
-        }
-        //float pan_rate_rad =  tuples.get("PanRate", 0.0f);
-        //int pan_rate_pos = radToPos(pan_rate_rad);
+		}
+		//float pan_rate_rad =  tuples.get("PanRate", 0.0f);
+		//int pan_rate_pos = radToPos(pan_rate_rad);
 
-        //float tilt_rate_rad =  tuples.get("TiltRate", 0.0f);
-        //int tilt_rate_pos = radToPos(tilt_rate_rad);
+		//float tilt_rate_rad =  tuples.get("TiltRate", 0.0f);
+		//int tilt_rate_pos = radToPos(tilt_rate_rad);
 
-        //debug("%f", pan_rate_rad);
-        //debug("%f", pan_rate_pos);
-        //debug("%f", tilt_rate_rad);
-        //debug("%f", tilt_rate_pos);
+		//debug("%f", pan_rate_rad);
+		//debug("%f", pan_rate_pos);
+		//debug("%f", tilt_rate_rad);
+		//debug("%f", tilt_rate_pos);
 
-        // Send pan rate command.
-        //createCommand("ps", pan_rate_pos);
+		// Send pan rate command.
+		//createCommand("ps", pan_rate_pos);
 
-        // Send tilt rate command.
-        //createCommand("ts", tilt_rate_pos);
+		// Send tilt rate command.
+		//createCommand("ts", tilt_rate_pos);
 
-        // Send halt command.
-        //if (tuples.get("Halt", 0)) sendCommand("h ");
-      }
-    };
-  }
+		// Send halt command.
+		//if (tuples.get("Halt", 0)) sendCommand("h ");
+	}
+};
+}
 }
 
 DUNE_TASK
