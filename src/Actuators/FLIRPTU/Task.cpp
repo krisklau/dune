@@ -226,8 +226,12 @@ struct Task: public Tasks::Periodic
 					if(rv <= 0){
 						endloop = true;
 					}
+				}else{
+					endloop = true;
 				}
 
+			}else{
+				endloop = true;
 			}
 		}
 
