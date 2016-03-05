@@ -401,6 +401,13 @@ namespace DUNE
         else
           dispatch(m_zref);
       }
+      else if(hasSpecificZControl())
+      {
+        m_ts.z_control = true;
+        m_zref.value = dpath->end_z;
+        m_zref.z_units = dpath->end_z_units;
+        dispatch(m_zref, Tasks::DF_LOOP_BACK);
+      }
       else
       {
         m_ts.z_control = false;
