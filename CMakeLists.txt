@@ -88,6 +88,7 @@ dune_option(BLUEVIEW "Enable support for the BlueView SDK")
 dune_option(OPENCV "Enable support for OpenCV")
 dune_option(NO_RTTI "Disable support for RTTI")
 dune_option(UEYE "Enable support for IDS uEye cameras")
+dune_option(PROTOBUF "Enable support for Google Protobuf")
 
 # Internationalization.
 include(${PROJECT_SOURCE_DIR}/cmake/I18N.cmake)
