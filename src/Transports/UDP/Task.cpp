@@ -223,7 +223,8 @@ namespace Transports
         }
 
         // Register normal messages.
-        bind(this, m_args.messages);
+        if (paramChanged(m_args.messages))
+          bind(this, m_args.messages);
       }
 
       void
